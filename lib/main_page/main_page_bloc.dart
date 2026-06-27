@@ -1,6 +1,3 @@
-import 'dart:async';
-
-import 'package:meta/meta.dart';
 import 'package:bloc/bloc.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:simple_chat/main_page/main_page_event.dart';
@@ -10,55 +7,44 @@ import 'package:simple_chat/repo/ui_chat.dart';
 import 'package:simple_chat/roster/roster_repo.dart';
 import 'package:simple_chat/service_locator/service_locator.dart';
 
+enum MainPageTab { CHAT_LIST, ROSTER }
+
 class MainPageBloc extends Bloc<MainPageEvent, MainPageState> {
-
   MainPageTab _activeTab = MainPageTab.ROSTER;
-  var _rosterRepo = sl.get<RosterRepo>();
-  var _chatListRepo = sl.get<ChatsRepo>();
+  final _rosterRepo = sl.get<RosterRepo>();
+  final _chatListRepo = sl.get<ChatsRepo>();
+  List<UiBuddy> _activeRoster = [];
+  List<UiChat> _activeChats = [];
 
-  var _activeRoster = List<UiBuddy>();
-  var _activeChats = List<UiChat>();
-
-  MainPageBloc() {
+  MainPageBloc() : super(MainPageRosterList(activeList: [])) {
+    on<MainPageChatListTabActive>((event, emit) {
+      _activeTab = MainPageTab.CHAT_LIST;
+      emit(MainPageChatList(activeList: _activeChats));
+    });
+    on<MainPageRosterTabActive>((event, emit) {
+      _activeTab = MainPageTab.ROSTER;
+      emit(MainPageRosterList(activeList: _activeRoster));
+    });
     _initStreams();
   }
 
-  @override
-  // TODO: implement initialState
-  MainPageState get initialState => MainPageRosterList(activeList: _activeRoster);
-
-  @override
-  Stream<MainPageState> mapEventToState(MainPageEvent event) async* {
-    if (event is MainPageChatListTabActive) {
-      yield MainPageChatList(activeList: _activeChats);
-    } else if (event is MainPageRosterTabActive) {
-      print("dispatch Roster2 ${_activeRoster.length}");
-      yield MainPageRosterList(activeList: _activeRoster);
-    }
-  }
-
   void _initStreams() {
-    Observable(_rosterRepo.rosterStream).debounce(Duration(milliseconds: 1000))
-        .listen(
-            (roster) {
+    _rosterRepo.rosterStream
+        .debounceTime(const Duration(milliseconds: 1000))
+        .listen((roster) {
       _activeRoster = roster;
       if (_activeTab == MainPageTab.ROSTER) {
-        dispatch(MainPageRosterTabActive());
-        print("dispatch Roster");
+        add(MainPageRosterTabActive());
       }
     });
 
-    Observable(_chatListRepo.chatsStream).debounce(Duration(milliseconds: 1000))
+    _chatListRepo.chatsStream
+        .debounceTime(const Duration(milliseconds: 1000))
         .listen((chats) {
       _activeChats = chats;
-      if(_activeTab == MainPageTab.CHAT_LIST) {
-        dispatch(MainPageChatListTabActive());
+      if (_activeTab == MainPageTab.CHAT_LIST) {
+        add(MainPageChatListTabActive());
       }
     });
   }
-
-}
-
-enum MainPageTab {
-  CHAT_LIST, ROSTER
 }
