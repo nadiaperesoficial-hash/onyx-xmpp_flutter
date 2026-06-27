@@ -6,13 +6,10 @@ abstract class LoginState extends Equatable {
   List<Object?> get props => [];
 }
 
-class LoginInitial extends LoginState {
-  const LoginInitial();
-}
-
-class LoginLoading extends LoginState {
-  const LoginLoading();
-}
+class LoginInitial extends LoginState { const LoginInitial(); }
+class LoginLoading extends LoginState { const LoginLoading(); }
+class RegisterLoading extends LoginState { const RegisterLoading(); }
+class RegisterSuccess extends LoginState { const RegisterSuccess(); }
 
 class LoginExtendedChanged extends LoginState {
   final bool loginExtendValue;
@@ -35,19 +32,9 @@ class LoginDataLoaded extends LoginState {
   final int port;
   final bool wasExtended;
   final bool rememberMe;
-
-  const LoginDataLoaded({
-    required this.username,
-    required this.password,
-    required this.domain,
-    required this.port,
-    required this.wasExtended,
-    required this.rememberMe,
-  });
-
+  const LoginDataLoaded({required this.username, required this.password, required this.domain, required this.port, required this.wasExtended, required this.rememberMe});
   @override
-  List<Object?> get props =>
-      [username, password, domain, port, wasExtended, rememberMe];
+  List<Object?> get props => [username, password, domain, port, wasExtended, rememberMe];
 }
 
 class LoginFailure extends LoginState {
@@ -55,14 +42,6 @@ class LoginFailure extends LoginState {
   const LoginFailure({this.message});
   @override
   List<Object?> get props => [message];
-}
-
-class RegisterLoading extends LoginState {
-  const RegisterLoading();
-}
-
-class RegisterSuccess extends LoginState {
-  const RegisterSuccess();
 }
 
 class RegisterFailure extends LoginState {
