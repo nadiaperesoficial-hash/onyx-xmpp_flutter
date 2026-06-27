@@ -11,14 +11,7 @@ class LoginButtonPressed extends LoginEvent {
   final String password;
   final String domain;
   final int port;
-
-  const LoginButtonPressed({
-    required this.username,
-    required this.password,
-    required this.domain,
-    required this.port,
-  });
-
+  const LoginButtonPressed({required this.username, required this.password, required this.domain, required this.port});
   @override
   List<Object?> get props => [username, password, domain, port];
 }
@@ -28,14 +21,7 @@ class RegisterButtonPressed extends LoginEvent {
   final String password;
   final String domain;
   final int port;
-
-  const RegisterButtonPressed({
-    required this.username,
-    required this.password,
-    required this.domain,
-    required this.port,
-  });
-
+  const RegisterButtonPressed({required this.username, required this.password, required this.domain, required this.port});
   @override
   List<Object?> get props => [username, password, domain, port];
 }
@@ -58,19 +44,9 @@ class LoginDataLoadedEvent extends LoginEvent {
   final int port;
   final bool wasExtended;
   final bool rememberMe;
-
-  const LoginDataLoadedEvent({
-    required this.username,
-    required this.password,
-    required this.domain,
-    required this.port,
-    required this.wasExtended,
-    required this.rememberMe,
-  });
-
+  const LoginDataLoadedEvent({required this.username, required this.password, required this.domain, required this.port, required this.wasExtended, required this.rememberMe});
   @override
-  List<Object?> get props =>
-      [username, password, domain, port, wasExtended, rememberMe];
+  List<Object?> get props => [username, password, domain, port, wasExtended, rememberMe];
 }
 
 class LoginDataShownEvent extends LoginEvent {
