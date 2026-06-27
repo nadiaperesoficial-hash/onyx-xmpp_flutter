@@ -1,46 +1,54 @@
 import 'package:equatable/equatable.dart';
-import 'package:meta/meta.dart';
 import 'package:xmpp_stone/xmpp_stone.dart';
 
-abstract class AccountState extends Equatable {}
+abstract class AccountState extends Equatable {
+  const AccountState();
+
+  @override
+  List<Object?> get props => [];
+}
 
 class AccountRegistered extends AccountState {
-  XmppAccount account;
+  final XmppAccount? account;
+  const AccountRegistered({required this.account});
 
-  AccountRegistered({@required this.account});
   @override
-  String toString() {
-    return 'AccountRegistered';
-  }
+  List<Object?> get props => [account];
+
+  @override
+  String toString() => 'AccountRegistered';
 }
 
 class AccountRegistering extends AccountState {
-  XmppAccount account;
+  final XmppAccount? account;
+  const AccountRegistering({required this.account});
 
-  AccountRegistering({@required this.account});
   @override
-  String toString() {
-    return "AccountRegistering";
-  }
+  List<Object?> get props => [account];
+
+  @override
+  String toString() => 'AccountRegistering';
 }
 
 class AccountUnregistered extends AccountState {
-  XmppAccount account;
-  final String message;
+  final XmppAccount? account;
+  final String? message;
+  const AccountUnregistered({required this.account, required this.message});
 
-  AccountUnregistered({@required this.account, @required this.message});
   @override
-  String toString() {
-    return "AccountUnregistered";
-  }
+  List<Object?> get props => [account, message];
+
+  @override
+  String toString() => 'AccountUnregistered';
 }
 
 class AccountUninitialized extends AccountState {
-  XmppAccount account;
+  final XmppAccount? account;
+  const AccountUninitialized({required this.account});
 
-  AccountUninitialized({@required this.account});
   @override
-  String toString() {
-    return "AccountUninitialized";
-  }
+  List<Object?> get props => [account];
+
+  @override
+  String toString() => 'AccountUninitialized';
 }
