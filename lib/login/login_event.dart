@@ -1,8 +1,9 @@
 import 'package:equatable/equatable.dart';
-import 'package:meta/meta.dart';
 
 abstract class LoginEvent extends Equatable {
-  LoginEvent([List props = const []]) : super(props);
+  const LoginEvent();
+  @override
+  List<Object?> get props => [];
 }
 
 class LoginButtonPressed extends LoginEvent {
@@ -11,60 +12,74 @@ class LoginButtonPressed extends LoginEvent {
   final String domain;
   final int port;
 
-  LoginButtonPressed(
-      {@required this.username,
-      @required this.password,
-      @required this.domain,
-      @required this.port})
-      : super([username, password, domain, port]);
+  const LoginButtonPressed({
+    required this.username,
+    required this.password,
+    required this.domain,
+    required this.port,
+  });
 
   @override
-  String toString() => 'LoginButtonPressed';
+  List<Object?> get props => [username, password, domain, port];
 }
 
-class LoginDataShownEvent extends LoginEvent {
+class RegisterButtonPressed extends LoginEvent {
+  final String username;
+  final String password;
+  final String domain;
+  final int port;
+
+  const RegisterButtonPressed({
+    required this.username,
+    required this.password,
+    required this.domain,
+    required this.port,
+  });
+
   @override
-  String toString() => 'LoginDataShownEvent';
+  List<Object?> get props => [username, password, domain, port];
 }
 
-class LoginDataLoadedEvent extends LoginEvent {
-  String username;
-  String password;
-  String domain;
-  int port;
-  bool wasExtended;
-  bool rememberMe;
-
-  @override
-  String toString() => 'LoginDataLoadedEvent';
-
-  LoginDataLoadedEvent(
-      {this.username, this.password, this.domain, this.port, this.wasExtended, this.rememberMe});
+class ExtendPressed extends LoginEvent {
+  const ExtendPressed();
 }
 
 class RememberMePressed extends LoginEvent {
   final bool rememberMeValue;
-
-  RememberMePressed({@required this.rememberMeValue})
-      : super([rememberMeValue]);
-
+  const RememberMePressed({required this.rememberMeValue});
   @override
-  String toString() => 'RememberMePressed';
+  List<Object?> get props => [rememberMeValue];
 }
 
-class ExtendPressed extends LoginEvent {
+class LoginDataLoadedEvent extends LoginEvent {
+  final String username;
+  final String password;
+  final String domain;
+  final int port;
+  final bool wasExtended;
+  final bool rememberMe;
 
-  ExtendPressed() : super();
+  const LoginDataLoadedEvent({
+    required this.username,
+    required this.password,
+    required this.domain,
+    required this.port,
+    required this.wasExtended,
+    required this.rememberMe,
+  });
 
   @override
-  String toString() => 'ExtendPressed';
+  List<Object?> get props =>
+      [username, password, domain, port, wasExtended, rememberMe];
+}
+
+class LoginDataShownEvent extends LoginEvent {
+  const LoginDataShownEvent();
 }
 
 class LoginFailureEvent extends LoginEvent {
-  final String message;
-
-  LoginFailureEvent({this.message});
-
+  final String? message;
+  const LoginFailureEvent({this.message});
   @override
-  String toString() => 'LoginFailure';
+  List<Object?> get props => [message];
 }
