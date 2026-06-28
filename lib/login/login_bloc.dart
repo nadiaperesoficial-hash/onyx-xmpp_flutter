@@ -14,6 +14,12 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   bool _rememberMe = false;
   StreamSubscription? _accountSub;
 
+  // Armazena os dados salvos separadamente
+  String _savedUsername = '';
+  String _savedDomain = '';
+  String _savedPassword = '';
+  int _savedPort = 5222;
+
   LoginBloc({required this.accountBloc}) : super(const LoginInitial()) {
     on<LoginButtonPressed>(_onLoginPressed);
     on<RegisterButtonPressed>(_onRegisterPressed);
@@ -35,19 +41,19 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     int port;
 
     if (_extended) {
+      // Modo avançado: campos separados
       username = event.username.trim();
       password = event.password;
       domain = event.domain.trim();
       port = event.port;
     } else {
-      // Modo básico: aceita usuário@dominio ou só usuário
+      // Modo básico: campo único no formato usuario@dominio
       final input = event.username.trim();
       if (input.contains('@')) {
         final parts = input.split('@');
         username = parts[0];
         domain = parts[1];
       } else {
-        // Sem @ — pede domínio
         emit(LoginFailure(message: 'Use o formato usuário@servidor.com ou ative o modo Avançado'));
         return;
       }
@@ -60,11 +66,13 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       return;
     }
 
+    // Salva se "lembrar" estiver ativo
     if (_rememberMe) {
       _settings.setString(Settings.username, username);
       _settings.setString(Settings.domain, domain);
       _settings.setString(Settings.password, password);
       _settings.setInt(Settings.port, port);
+      _settings.setBool(Settings.wasExtended, _extended);
     }
 
     accountBloc.add(Login(
@@ -88,6 +96,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
         password: event.password,
       ).register();
       emit(const RegisterSuccess());
+      // Após registrar, faz login
       accountBloc.add(Login(
         username: event.username,
         password: event.password,
@@ -103,6 +112,8 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   void _onExtendPressed(ExtendPressed event, Emitter<LoginState> emit) {
     _extended = !_extended;
     _settings.setBool(Settings.wasExtended, _extended);
+    // Recarrega os dados para exibir no formato correto
+    _loadSavedData();
     emit(LoginExtendedChanged(loginExtendValue: _extended));
   }
 
@@ -110,7 +121,17 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       RememberMePressed event, Emitter<LoginState> emit) {
     _rememberMe = event.rememberMeValue;
     _settings.setBool(Settings.rememberMe, _rememberMe);
-    if (!_rememberMe) accountBloc.add(const ForgetMe());
+    if (!_rememberMe) {
+      accountBloc.add(const ForgetMe());
+      _settings.remove(Settings.username);
+      _settings.remove(Settings.domain);
+      _settings.remove(Settings.password);
+      _settings.remove(Settings.port);
+      _savedUsername = '';
+      _savedDomain = '';
+      _savedPassword = '';
+      _savedPort = 5222;
+    }
     emit(RememberMeChanged(rememberMeValue: _rememberMe));
   }
 
@@ -118,13 +139,28 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       LoginDataLoadedEvent event, Emitter<LoginState> emit) {
     _rememberMe = event.rememberMe;
     _extended = event.wasExtended;
+    _savedUsername = event.username;
+    _savedDomain = event.domain;
+    _savedPassword = event.password;
+    _savedPort = event.port;
+
+    // Monta o display do campo de usuário conforme o modo
+    String displayUser;
+    if (_extended) {
+      displayUser = _savedUsername; // só o nome
+    } else {
+      displayUser = _savedUsername.isNotEmpty && _savedDomain.isNotEmpty
+          ? '$_savedUsername@$_savedDomain'
+          : '';
+    }
+
     emit(LoginDataLoaded(
-      username: event.username,
-      password: event.password,
-      domain: event.domain,
-      port: event.port,
-      wasExtended: event.wasExtended,
-      rememberMe: event.rememberMe,
+      username: displayUser,
+      password: _savedPassword,
+      domain: _savedDomain,
+      port: _savedPort,
+      wasExtended: _extended,
+      rememberMe: _rememberMe,
     ));
   }
 
@@ -137,40 +173,46 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     emit(LoginFailure(message: event.message));
   }
 
-  void _initData() {
+  void _loadSavedData() {
     _settings.isInitialized().then((_) {
-      if (_settings.getBool(Settings.rememberMe) == true) {
-        final u = _settings.getString(Settings.username) ?? '';
-        final d = _settings.getString(Settings.domain) ?? '';
-        final p = _settings.getString(Settings.password) ?? '';
-        final port =
-            _settings.getInt(Settings.port) ?? _settings.getDefaultPort();
-        final wasExtended =
-            _settings.getBool(Settings.wasExtended) ?? false;
-        _extended = wasExtended;
-        // Reconstrói JID completo para campo de usuário no modo básico
-        final displayUser =
-            d.isNotEmpty ? '$u@$d' : u;
-        add(LoginDataLoadedEvent(
-          username: displayUser,
-          password: p,
-          domain: d,
-          port: port,
-          wasExtended: wasExtended,
-          rememberMe: true,
-        ));
+      final remember = _settings.getBool(Settings.rememberMe) ?? false;
+      _rememberMe = remember;
+      if (remember) {
+        _savedUsername = _settings.getString(Settings.username) ?? '';
+        _savedDomain = _settings.getString(Settings.domain) ?? '';
+        _savedPassword = _settings.getString(Settings.password) ?? '';
+        _savedPort = _settings.getInt(Settings.port) ?? _settings.getDefaultPort();
+        _extended = _settings.getBool(Settings.wasExtended) ?? false;
       } else {
-        add(LoginDataLoadedEvent(
-          username: '',
-          password: '',
-          domain: '',
-          port: _settings.getDefaultPort(),
-          wasExtended:
-              _settings.getBool(Settings.wasExtended) ?? false,
-          rememberMe: false,
-        ));
+        _savedUsername = '';
+        _savedDomain = '';
+        _savedPassword = '';
+        _savedPort = _settings.getDefaultPort();
+        _extended = _settings.getBool(Settings.wasExtended) ?? false;
       }
+
+      String displayUser;
+      if (_extended) {
+        displayUser = _savedUsername;
+      } else {
+        displayUser = _savedUsername.isNotEmpty && _savedDomain.isNotEmpty
+            ? '$_savedUsername@$_savedDomain'
+            : '';
+      }
+
+      add(LoginDataLoadedEvent(
+        username: displayUser,
+        password: _savedPassword,
+        domain: _savedDomain,
+        port: _savedPort,
+        wasExtended: _extended,
+        rememberMe: _rememberMe,
+      ));
     });
+  }
+
+  void _initData() {
+    _loadSavedData();
   }
 
   @override
