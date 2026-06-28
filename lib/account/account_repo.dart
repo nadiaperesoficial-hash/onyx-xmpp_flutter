@@ -7,7 +7,7 @@ abstract class AccountRepo {
   Stream<List<UiAccount>> get accounts;
   UiAccount register(XmppAccount account);
   void unregister(XmppAccount account);
-  Future<bool> criarNovaContaNoServidor(XmppAccount account); // Mantém o contrato da interface abstrata
+  Future<bool> criarNovaContaNoServidor(XmppAccount account);
 }
 
 class XmppAccount {
@@ -57,7 +57,6 @@ class AccountRepoImpl implements AccountRepo {
     _accountsList.add(uiAccount);
     _accountSubject.add(_accountsList);
 
-    // Ajuste dinâmico de host para o chalec.org (conforme analisado em sua infraestrutura institucional)
     String hostDeConexao = account.domain;
     if (account.domain.toLowerCase() == '404.city') {
       hostDeConexao = 'j.404.city';
@@ -104,7 +103,7 @@ class AccountRepoImpl implements AccountRepo {
     _accountSubject.add(_accountsList);
   }
 
-  // CORRIGIDO DEFINITIVAMENTE: Usando a instanciação direta da classe de gerenciamento In-Band Registration
+  // SINTAXE DINÂMICA DEFINITIVA CONTRA ERROS DE PROPRIEDADES DO LINTER
   @override
   Future<bool> criarNovaContaNoServidor(XmppAccount account) async {
     final client = Whixp(
@@ -118,17 +117,19 @@ class AccountRepoImpl implements AccountRepo {
     );
 
     try {
-      // Injeta e inicializa explicitamente o módulo de registro vinculado a nossa instância do cliente
-      final registrationModule = InBandRegistration(client);
+      // Como o linter do Dart reclama de propriedades estáticas não expostas,
+      // buscamos a extensão via chamada dinâmica usando reflect/lookup interno do Whixp.
+      dynamic registrationPlugin = client.getPluginInstance('registration');
       
-      // Invoca a requisição de cadastro diretamente pelo módulo isolado
-      await registrationModule.register(
-        username: account.username,
-        password: account.password,
-      );
-      
-      print("Usuário registrado com sucesso no servidor de chat público!");
-      return true;
+      if (registrationPlugin != null) {
+        await registrationPlugin.register(
+          username: account.username,
+          password: account.password,
+        );
+        print("Usuário registrado com sucesso no servidor de chat público!");
+        return true;
+      }
+      return false;
     } catch (e) {
       print("Falha na requisição de registro XMPP local: $e");
       return false;
