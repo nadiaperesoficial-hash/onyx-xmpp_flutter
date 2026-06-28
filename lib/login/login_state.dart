@@ -1,33 +1,28 @@
-abstract class LoginState {}
+import 'package:equatable/equatable.dart';
 
-class LoginInitial extends LoginState {}
-
-class LoginLoading extends LoginState {}
-
-class LoginSuccess extends LoginState {}
-
-class LoginFailure extends LoginState {
-  final String message;
-  LoginFailure({required this.message});
+abstract class LoginState extends Equatable {
+  const LoginState();
+  @override
+  List<Object?> get props => [];
 }
 
-class RegisterLoading extends LoginState {}
-
-class RegisterSuccess extends LoginState {}
-
-class RegisterFailure extends LoginState {
-  final String message;
-  RegisterFailure({required this.message});
-}
+class LoginInitial extends LoginState { const LoginInitial(); }
+class LoginLoading extends LoginState { const LoginLoading(); }
+class RegisterLoading extends LoginState { const RegisterLoading(); }
+class RegisterSuccess extends LoginState { const RegisterSuccess(); }
 
 class LoginExtendedChanged extends LoginState {
   final bool loginExtendValue;
-  LoginExtendedChanged({required this.loginExtendValue});
+  const LoginExtendedChanged({required this.loginExtendValue});
+  @override
+  List<Object?> get props => [loginExtendValue];
 }
 
 class RememberMeChanged extends LoginState {
   final bool rememberMeValue;
-  RememberMeChanged({required this.rememberMeValue});
+  const RememberMeChanged({required this.rememberMeValue});
+  @override
+  List<Object?> get props => [rememberMeValue];
 }
 
 class LoginDataLoaded extends LoginState {
@@ -37,12 +32,21 @@ class LoginDataLoaded extends LoginState {
   final int port;
   final bool wasExtended;
   final bool rememberMe;
-  LoginDataLoaded({
-    required this.username,
-    required this.password,
-    required this.domain,
-    required this.port,
-    required this.wasExtended,
-    required this.rememberMe,
-  });
+  const LoginDataLoaded({required this.username, required this.password, required this.domain, required this.port, required this.wasExtended, required this.rememberMe});
+  @override
+  List<Object?> get props => [username, password, domain, port, wasExtended, rememberMe];
+}
+
+class LoginFailure extends LoginState {
+  final String? message;
+  const LoginFailure({this.message});
+  @override
+  List<Object?> get props => [message];
+}
+
+class RegisterFailure extends LoginState {
+  final String message;
+  const RegisterFailure({required this.message});
+  @override
+  List<Object?> get props => [message];
 }
