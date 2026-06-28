@@ -5,6 +5,8 @@ import 'package:simple_chat/login/login_event.dart';
 import 'package:simple_chat/login/login_state.dart';
 
 const List<Map<String, dynamic>> kPublicServers = [
+  {'name': 'xmpp.jp', 'domain': 'xmpp.jp', 'port': 5222},
+  {'name': '404.city', 'domain': '404.city', 'port': 5222},
   {'name': 'jabber.org', 'domain': 'jabber.org', 'port': 5222},
   {'name': 'conversations.im', 'domain': 'conversations.im', 'port': 5222},
   {'name': 'jabber.de', 'domain': 'jabber.de', 'port': 5222},
