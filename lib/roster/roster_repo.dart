@@ -46,7 +46,8 @@ class RosterRepoImpl implements RosterRepo {
         _accounts[acc] = sub;
       }
     }
-    final toRemove = _accounts.keys.where((a) => !accounts.contains(a)).toList();
+    final toRemove =
+        _accounts.keys.where((a) => !accounts.contains(a)).toList();
     for (final acc in toRemove) {
       _accounts[acc]?.cancel();
       _accounts.remove(acc);
@@ -59,13 +60,15 @@ class RosterRepoImpl implements RosterRepo {
     final client = acc.client;
     if (client == null) return;
 
-    client.addEventHandler<Map<String, dynamic>>('rosterReceived', (roster) {
+    client.addEventHandler<Map<String, dynamic>?>('rosterReceived', (roster) {
+      if (roster == null) return;
       roster.forEach((jid, info) {
-        final name = (info['name'] as String?)?.isNotEmpty == true
-            ? info['name'] as String
+        final infoMap = info as Map<String, dynamic>?;
+        final name = (infoMap?['name'] as String?)?.isNotEmpty == true
+            ? infoMap!['name'] as String
             : jid;
-        final exists = _rosterList.any(
-            (b) => b.jidString == jid && b.account.id == acc.id);
+        final exists = _rosterList
+            .any((b) => b.jidString == jid && b.account.id == acc.id);
         if (!exists) {
           _rosterList.add(UiBuddy(account: acc, jidString: jid, name: name));
         }
