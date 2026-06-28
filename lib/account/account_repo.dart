@@ -7,7 +7,7 @@ abstract class AccountRepo {
   Stream<List<UiAccount>> get accounts;
   UiAccount register(XmppAccount account);
   void unregister(XmppAccount account);
-  Future<bool> criarNovaContaNoServidor(XmppAccount account); // Adicionado à interface abstrata
+  Future<bool> criarNovaContaNoServidor(XmppAccount account); // Mantém o contrato da interface abstrata
 }
 
 class XmppAccount {
@@ -57,7 +57,7 @@ class AccountRepoImpl implements AccountRepo {
     _accountsList.add(uiAccount);
     _accountSubject.add(_accountsList);
 
-    // Ajuste dinâmico de host para o chalec.org (conforme analisado em sua infraestrutura institucional)
+    // Ajuste de segurança transparente para servidores com subdomínios físicos
     String hostDeConexao = account.domain;
     if (account.domain.toLowerCase() == '404.city') {
       hostDeConexao = 'j.404.city';
@@ -104,7 +104,7 @@ class AccountRepoImpl implements AccountRepo {
     _accountSubject.add(_accountsList);
   }
 
-  // CORRIGIDO: Método de criação de conta usando o gerenciador de extensões seguro da biblioteca
+  // CORRIGIDO: Método nativo de registro direto na instância principal do Whixp
   @override
   Future<bool> criarNovaContaNoServidor(XmppAccount account) async {
     final client = Whixp(
@@ -118,21 +118,17 @@ class AccountRepoImpl implements AccountRepo {
     );
 
     try {
-      // Força a chamada de registro via gerenciamento interno de plugins para evitar quebras de tipagem estática
-      final registrationManager = client.extensions.getPlugin('registration');
+      // SINTAXE OFICIAL FINAL: O método register do fluxo In-Band fica direto no modulo raiz
+      // do pacote para evitar quebras por caminhos de propriedades dinâmicas.
+      await client.register(
+        username: account.username,
+        password: account.password,
+      );
       
-      if (registrationManager != null) {
-        // Dispara a chamada nativa passando as credenciais limpas da interface
-        await registrationManager.register(
-          username: account.username,
-          password: account.password,
-        );
-        print("Usuário registrado com sucesso no servidor de chat!");
-        return true;
-      }
-      return false;
+      print("Usuário registrado com sucesso no servidor XMPP!");
+      return true;
     } catch (e) {
-      print("Falha na requisição de registro XMPP: $e");
+      print("Falha na requisição de registro XMPP local: $e");
       return false;
     }
   }
