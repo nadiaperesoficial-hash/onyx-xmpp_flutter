@@ -21,7 +21,7 @@ class XmppAccount {
 
 class UiAccount {
   final XmppAccount account;
-  XmppConnection? _connection;
+  
   final _stateSubject = BehaviorSubject<AccountState>();
 
   Stream<AccountState> get accountStateStream => _stateSubject.stream;
