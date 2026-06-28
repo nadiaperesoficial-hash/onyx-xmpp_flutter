@@ -7,9 +7,6 @@ import 'package:simple_chat/registration/xmpp_registrar.dart';
 import 'package:simple_chat/service_locator/service_locator.dart';
 import 'package:simple_chat/settings/settings.dart';
 
-part 'login_event.dart';
-part 'login_state.dart';
-
 class LoginBloc extends Bloc<LoginEvent, LoginState> {
   final AccountBloc accountBloc;
   final Settings _settings = sl.get<Settings>();
@@ -17,13 +14,12 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   bool _rememberMe = false;
   StreamSubscription? _accountSub;
 
-  // Dados salvos separadamente
   String _savedUsername = '';
   String _savedDomain = '';
   String _savedPassword = '';
   int _savedPort = 5222;
 
-  LoginBloc({required this.accountBloc}) : super(const LoginInitial()) {
+  LoginBloc({required this.accountBloc}) : super(LoginInitial()) {
     on<LoginButtonPressed>(_onLoginPressed);
     on<RegisterButtonPressed>(_onRegisterPressed);
     on<ExtendPressed>(_onExtendPressed);
@@ -33,13 +29,10 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     on<LoginFailureEvent>(_onLoginFailure);
     on<LoginSuccessEvent>(_onLoginSuccess);
 
-    // Escuta o AccountBloc para mapear estados
     _accountSub = accountBloc.stream.listen((accountState) {
       if (accountState is AccountRegistered) {
-        // Login bem-sucedido
         add(LoginSuccessEvent());
       } else if (accountState is AccountUnregistered) {
-        // Login falhou
         add(LoginFailureEvent(message: accountState.message ?? 'Falha na conexão'));
       }
     });
@@ -53,20 +46,16 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     return super.close();
   }
 
-  // ===== Handlers =====
-
   void _onLoginPressed(LoginButtonPressed event, Emitter<LoginState> emit) {
     String username, password, domain;
     int port;
 
     if (_extended) {
-      // Modo avançado: campos separados
       username = event.username.trim();
       password = event.password;
       domain = event.domain.trim();
       port = event.port;
     } else {
-      // Modo básico: campo único usuario@dominio
       final input = event.username.trim();
       if (input.contains('@')) {
         final parts = input.split('@');
@@ -85,7 +74,6 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       return;
     }
 
-    // Salva se "lembrar" estiver ativo
     if (_rememberMe) {
       _settings.setString(Settings.username, username);
       _settings.setString(Settings.domain, domain);
@@ -94,10 +82,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       _settings.setBool(Settings.wasExtended, _extended);
     }
 
-    // Emite loading antes de tentar conectar
     emit(LoginLoading());
-
-    // Dispara o login no AccountBloc
     accountBloc.add(Login(
       username: username,
       password: password,
@@ -108,7 +93,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
   Future<void> _onRegisterPressed(
       RegisterButtonPressed event, Emitter<LoginState> emit) async {
-    emit(const RegisterLoading());
+    emit(RegisterLoading());
     try {
       await XmppRegistrar(
         domain: event.domain,
@@ -117,8 +102,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
         username: event.username,
         password: event.password,
       ).register();
-      emit(const RegisterSuccess());
-      // Após registrar, faz login automaticamente
+      emit(RegisterSuccess());
       accountBloc.add(Login(
         username: event.username,
         password: event.password,
@@ -143,7 +127,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     _rememberMe = event.rememberMeValue;
     _settings.setBool(Settings.rememberMe, _rememberMe);
     if (!_rememberMe) {
-      accountBloc.add(const ForgetMe());
+      accountBloc.add(ForgetMe());
       _settings.remove(Settings.username);
       _settings.remove(Settings.domain);
       _settings.remove(Settings.password);
@@ -186,7 +170,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
   void _onLoginDataShown(
       LoginDataShownEvent event, Emitter<LoginState> emit) {
-    emit(const LoginInitial());
+    emit(LoginInitial());
   }
 
   void _onLoginFailure(LoginFailureEvent event, Emitter<LoginState> emit) {
@@ -196,8 +180,6 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
   void _onLoginSuccess(LoginSuccessEvent event, Emitter<LoginState> emit) {
     emit(LoginSuccess());
   }
-
-  // ===== Helpers =====
 
   void _loadSavedData() {
     final remember = _settings.getBool(Settings.rememberMe) ?? false;
