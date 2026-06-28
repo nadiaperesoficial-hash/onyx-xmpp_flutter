@@ -4,7 +4,6 @@ import 'package:rxdart/rxdart.dart';
 import 'package:simple_chat/account/account_repo.dart';
 import 'package:simple_chat/account/account_state.dart';
 import 'package:simple_chat/service_locator/service_locator.dart';
-import 'package:xmpp_plugin/xmpp_plugin.dart';
 
 abstract class RosterRepo {
   Stream<List<UiBuddy>> get rosterStream;
@@ -30,7 +29,6 @@ class RosterRepoImpl implements RosterRepo {
   final List<UiBuddy> _rosterList = [];
   final _rosterSubject = BehaviorSubject<List<UiBuddy>>();
   final Map<UiAccount, StreamSubscription> _accounts = {};
-  XmppConnection? _connection;
 
   @override
   Stream<List<UiBuddy>> get rosterStream => _rosterSubject.stream;
@@ -57,30 +55,23 @@ class RosterRepoImpl implements RosterRepo {
     }
   }
 
-  Future<void> _loadRoster(UiAccount acc) async {
-    try {
-      final params = {
-        'user_jid': acc.id,
-        'password': acc.account.password,
-        'host': acc.account.domain,
-        'port': acc.account.port.toString(),
-        'requireSSLConnection': true,
-        'autoDeliveryReceipt': false,
-        'useStreamManagement': false,
-        'automaticReconnection': false,
-      };
-      _connection = XmppConnection(params);
-      final rosters = await _connection!.getMyRosters() ?? [];
-      for (final r in rosters) {
-        final jid = r['jid']?.toString() ?? '';
-        final name = r['name']?.toString() ?? jid;
-        final exists = _rosterList.any((b) => b.jidString == jid && b.account.id == acc.id);
+  void _loadRoster(UiAccount acc) {
+    final client = acc.client;
+    if (client == null) return;
+
+    client.addEventHandler<Map<String, dynamic>>('rosterReceived', (roster) {
+      roster.forEach((jid, info) {
+        final name = (info['name'] as String?)?.isNotEmpty == true
+            ? info['name'] as String
+            : jid;
+        final exists = _rosterList.any(
+            (b) => b.jidString == jid && b.account.id == acc.id);
         if (!exists) {
           _rosterList.add(UiBuddy(account: acc, jidString: jid, name: name));
         }
-      }
+      });
       _rosterSubject.add(_rosterList);
-    } catch (_) {}
+    });
   }
 
   @override
