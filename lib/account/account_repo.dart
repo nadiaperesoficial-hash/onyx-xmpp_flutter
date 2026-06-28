@@ -7,6 +7,7 @@ abstract class AccountRepo {
   Stream<List<UiAccount>> get accounts;
   UiAccount register(XmppAccount account);
   void unregister(XmppAccount account);
+  Future<bool> criarNovaContaNoServidor(XmppAccount account); // Contrato do método de registro
 }
 
 class XmppAccount {
@@ -49,6 +50,7 @@ class AccountRepoImpl implements AccountRepo {
   @override
   Stream<List<UiAccount>> get accounts => _accountSubject.stream;
 
+  // 1. MÉTODO PARA REALIZAR LOGIN (CONECTAR CONTA EXISTENTE)
   @override
   UiAccount register(XmppAccount account) {
     final uiAccount = UiAccount(account);
@@ -56,27 +58,14 @@ class AccountRepoImpl implements AccountRepo {
     _accountsList.add(uiAccount);
     _accountSubject.add(_accountsList);
 
-    // CORREÇÃO 1: Mapeamento do host físico correto para o servidor 404.city
-    String hostDeConexao = account.domain;
-    if (account.domain.toLowerCase() == '404.city') {
-      hostDeConexao = 'j.404.city'; 
-    }
-
-    // CORREÇÃO 2: Define se a conexão deve iniciar o socket de forma criptografada (TLS Direto)
-    final bool forcarCriptografia = (account.port == 443 || account.port == 5223);
-
     final client = Whixp(
       jabberID: '${account.username}@${account.domain}/simple_chat',
       password: account.password,
-      host: hostDeConexao, 
+      host: account.domain, 
       port: account.port,   
       internalDatabasePath: 'whixp_${account.username}',
       reconnectionPolicy: RandomBackoffReconnectionPolicy(3, 15),
-      
-      // CORREÇÃO 3: Sintaxe oficial com letras maiúsculas exigida pelo pacote whixp
-      useTLS: forcarCriptografia,
-
-      // CORREÇÃO 4: Callback necessário para o Android aceitar certificados de servidores públicos
+      useTLS: false, // Define como false para permitir a negociação STARTTLS padrão do chalec.org na porta 5222
       onBadCertificateCallback: (certificate) => true,
     );
 
@@ -85,16 +74,14 @@ class AccountRepoImpl implements AccountRepo {
 
     client.addEventHandler<TransportState>('state', (state) {
       if (state == null) return;
-      
-      print("WHIXP STATUS ATUAL DA CONEXÃO: $state");
+      print("STATUS CONEXÃO: $state");
 
       if (state == TransportState.connected) {
         uiAccount.accountState = AccountRegistered(account: account);
-        print("Usuário autenticado com sucesso!");
       } else if (state == TransportState.disconnected) {
         uiAccount.accountState = AccountUnregistered(
           account: account,
-          message: 'Conexão encerrada pelo servidor ou erro de credenciais.',
+          message: 'A conexão foi encerrada.',
         );
       }
     });
@@ -103,13 +90,42 @@ class AccountRepoImpl implements AccountRepo {
       client.connect();
     } catch (e) {
       print("Erro ao tentar disparar o método connect: $e");
-      uiAccount.accountState = AccountUnregistered(
-        account: account,
-        message: 'Erro interno ao iniciar socket de conexão.',
-      );
     }
     
     return uiAccount;
+  }
+
+  // 2. NOVO MÉTODO PARA CRIAR CONTA DO ZERO DIRETAMENTE PELO APLICATIVO
+  @override
+  Future<bool> criarNovaContaNoServidor(XmppAccount account) async {
+    final client = Whixp(
+      jabberID: '${account.username}@${account.domain}/simple_chat',
+      password: account.password,
+      host: account.domain,
+      port: account.port,
+      internalDatabasePath: 'whixp_reg_${account.username}',
+      useTLS: false,
+      onBadCertificateCallback: (certificate) => true,
+    );
+
+    try {
+      // Solicita o plugin nativo de registro em lote do protocolo XMPP
+      final registration = client.getPlugin<InBandRegistration>('registration');
+      
+      if (registration != null) {
+        // Envia os dados para a criação de conta limpa
+        await registration.register(
+          username: account.username,
+          password: account.password,
+        );
+        print("Conta criada com sucesso direto pelo app!");
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print("Erro ao criar conta no servidor: $e");
+      return false;
+    }
   }
 
   @override
