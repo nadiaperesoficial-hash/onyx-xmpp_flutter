@@ -6,6 +6,7 @@ import 'package:simple_chat/repo/db/db.dart';
 import 'package:simple_chat/repo/db/db_chat.dart';
 import 'package:simple_chat/repo/ui_chat.dart';
 import 'package:simple_chat/service_locator/service_locator.dart';
+import 'package:whixp/whixp.dart';
 
 abstract class ChatsRepo {
   Stream<List<UiChat>> get chatsStream;
@@ -30,45 +31,51 @@ class ChatsRepoImpl implements ChatsRepo {
     for (final acc in accounts) {
       if (!_accounts.containsKey(acc)) {
         final sub = acc.accountStateStream.listen((state) {
-          if (state is AccountRegistered) _loadChatsFromDb(acc);
+          if (state is AccountRegistered) {
+            _loadChatsFromDb(acc);
+            _listenMessages(acc);
+          }
         });
         _accounts[acc] = sub;
       }
     }
-    final toRemove = _accounts.keys.where((a) => !accounts.contains(a)).toList();
+    final toRemove =
+        _accounts.keys.where((a) => !accounts.contains(a)).toList();
     for (final acc in toRemove) {
       _accounts[acc]?.cancel();
       _accounts.remove(acc);
     }
   }
 
+  void _listenMessages(UiAccount acc) {
+    acc.client?.addEventHandler<Message>('message', (message) {
+      final fromJid = message.from?.bare ?? '';
+      if (fromJid.isEmpty) return;
+      var chat = _chats.firstWhere(
+        (c) => c.jid == fromJid && c.account.id == acc.id,
+        orElse: () {
+          final newChat = UiChat.fromJid(fromJid, acc);
+          _db.insert(newChat.getDbChat)
+              .then((inserted) => newChat.dbId = inserted.uuid);
+          _chats.add(newChat);
+          return newChat;
+        },
+      );
+      chat.addMessage(message.body ?? '', fromMe: false);
+      _chatsSubject.add(_chats);
+    });
+  }
+
   Future<void> _loadChatsFromDb(UiAccount account) async {
     final rows = await _db.getAllDbChatsForAccountId(account.id);
     for (final row in rows) {
       final dbChat = DbChat.fromMap(row);
-      final exists = _chats.any((c) => c.jid == dbChat.jid && c.account.id == account.id);
+      final exists = _chats
+          .any((c) => c.jid == dbChat.jid && c.account.id == account.id);
       if (!exists) {
         _chats.add(UiChat.fromDbChat(dbChat, account));
       }
     }
-    _chatsSubject.add(_chats);
-  }
-
-  void addMessage(String fromJid, String toJid, String body) {
-    final account = _accounts.keys.firstWhere(
-      (a) => a.id == toJid,
-      orElse: () => _accounts.keys.first,
-    );
-    var chat = _chats.firstWhere(
-      (c) => c.jid == fromJid && c.account.id == account.id,
-      orElse: () {
-        final newChat = UiChat.fromJid(fromJid, account);
-        _db.insert(newChat.getDbChat).then((inserted) => newChat.dbId = inserted.uuid);
-        _chats.add(newChat);
-        return newChat;
-      },
-    );
-    chat.addMessage(body, fromMe: false);
     _chatsSubject.add(_chats);
   }
 }
