@@ -1,5 +1,5 @@
 import 'dart:async';
-// import 'dart:typed_data';  // ← remova esta linha
+import 'dart:typed_data'; // ← necessário para Uint8List
 import 'package:rxdart/rxdart.dart';
 import 'package:simple_chat/account/account_repo.dart';
 import 'package:simple_chat/account/account_state.dart';
@@ -62,8 +62,8 @@ class RosterRepoImpl implements RosterRepo {
 
     client.addEventHandler<Map<String, dynamic>?>('rosterReceived', (roster) {
       if (roster == null) return;
-      // 🔽 CORREÇÃO: use roster! para garantir não nulo
-      roster!.forEach((jid, info) {
+      // 🔽 CORREÇÃO: remova o ! – o roster já é promovido a não-nulo
+      roster.forEach((jid, info) {
         final infoMap = info as Map<String, dynamic>?;
         final name = (infoMap?['name'] as String?)?.isNotEmpty == true
             ? infoMap!['name'] as String
