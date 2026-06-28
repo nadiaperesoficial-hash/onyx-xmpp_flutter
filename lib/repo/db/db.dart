@@ -1,62 +1,40 @@
-
-import 'dart:async';
-
-import 'dart:io';
-
 import 'package:path/path.dart';
 import 'package:simple_chat/repo/db/db_chat.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DatabaseHelper {
+  static const _databaseName = 'chat.db';
+  static const _databaseVersion = 1;
+  Database? _db;
 
-  static final _databaseName = "chat.db";
-  static final _databaseVersion = 1;
-
-
-  DatabaseHelper() {
-    initDatabase();
+  Future<void> initDatabase() async {
+    if (_db != null) return;
+    final path = join(await getDatabasesPath(), _databaseName);
+    _db = await openDatabase(path, version: _databaseVersion,
+        onCreate: (db, v) => db.execute(DbChat.getTableCreateString()));
   }
 
-  Database _db;
-
-  initDatabase() async {
-    var dbPath = await getDatabasesPath();
-    String path = join(dbPath, _databaseName);
-    _db = await openDatabase(path,
-        version: _databaseVersion,
-        onCreate: _onCreate);
+  Future<Database> get _database async {
+    if (_db == null) await initDatabase();
+    return _db!;
   }
-
-  Future _onCreate(Database db, int version) async {
-    await db.execute(DbChat.getTableCreateString());
-  }
-
 
   Future<DbChat> insert(DbChat chat) async {
-    chat.uuid = await _db.insert(DbChat.TABLE, chat.toMap());
+    final db = await _database;
+    chat.uuid = await db.insert(DbChat.TABLE, chat.toMap());
     return chat;
   }
 
-  Future<List<DbChat>> getAllDbChats() async {
-    var result = await _db.rawQuery("SELECT * FROM ${DbChat.TABLE}");
-    var chats = result.toList().map((item) => DbChat.fromMap(item));
-    return chats;
+  Future<List<Map<String, dynamic>>> getAllDbChatsForAccountId(String accountId) async {
+    final db = await _database;
+    return db.rawQuery(
+        'SELECT * FROM ${DbChat.TABLE} WHERE ${DbChat.COLUMN_ACCOUNT_ID} = ?',
+        [accountId]);
   }
-
-  //@formatter:off
-  Future<List<Map<String, dynamic>>> getAllDbChatsForAccountId(String
-  accountId) async {
-    return  _db.rawQuery('SELECT * FROM ${DbChat.TABLE} WHERE ${DbChat.COLUMN_ACCOUNT_ID} = "$accountId"');
-  }
-  //@formatter:on
 
   Future<int> delete(DbChat chat) async {
-    return await _db.rawDelete('DELETE FROM Customer WHERE "${DbChat.COLUMN_UUID} = ${chat
-        .uuid}"');
-  }
-
-  close() {
-
+    final db = await _database;
+    return db.delete(DbChat.TABLE,
+        where: '${DbChat.COLUMN_UUID} = ?', whereArgs: [chat.uuid]);
   }
 }
-
