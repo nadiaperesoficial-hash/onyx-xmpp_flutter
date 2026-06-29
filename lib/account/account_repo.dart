@@ -62,7 +62,7 @@ class AccountRepoImpl implements AccountRepo {
       jabberID: '${account.username}@${UiAccount.serverDomain}/simple_chat',
       password: account.password,
       host: UiAccount.serverDomain,
-      websocketEndpoint: UiAccount.wsUrl, // ← corrigido aqui
+      webSocketEndpoint: UiAccount.wsUrl, // ← corrigido para webSocketEndpoint
       internalDatabasePath: 'whixp_${account.username}',
       reconnectionPolicy: RandomBackoffReconnectionPolicy(1, 3),
       logger: Log(enableWarning: true, enableError: true),
