@@ -25,9 +25,7 @@ class UiAccount {
   WebSocketChannel? _channel;
   final _stateSubject = BehaviorSubject<AccountState>();
 
-  // Endpoint WebSocket do seu servidor no Railway
   static const wsUrl = 'wss://prosody-server-production.up.railway.app/xmpp-websocket';
-  // Domínio do servidor (deve ser o mesmo do endpoint)
   static const serverDomain = 'prosody-server-production.up.railway.app';
 
   Stream<AccountState> get accountStateStream => _stateSubject.stream;
@@ -109,7 +107,7 @@ class AccountRepoImpl implements AccountRepo {
               authenticated = true;
               log.writeln('[auth] success, reopening stream');
               send(
-                "<open xmlns='urn:ietf:params:xml:ns:xmpp-websocket' "
+                "<open xmlns='urn:ietf:params:xmlns:xmpp-framing' " // ← namespace corrigido
                 "to='${UiAccount.serverDomain}' version='1.0'/>",
               );
             } else if (xml.contains('<failure')) {
@@ -149,7 +147,7 @@ class AccountRepoImpl implements AccountRepo {
 
       log.writeln('[tx] opening stream');
       send(
-        "<open xmlns='urn:ietf:params:xml:ns:xmpp-websocket' "
+        "<open xmlns='urn:ietf:params:xmlns:xmpp-framing' " // ← namespace corrigido
         "to='${UiAccount.serverDomain}' version='1.0'/>",
       );
     } catch (e) {
@@ -162,7 +160,6 @@ class AccountRepoImpl implements AccountRepo {
 
   @override
   void unregister(XmppAccount account) {
-    // Usa o domínio da conta para localizar, não o global, para consistência.
     final id = '${account.username}@${account.domain}';
     final idx = _accountsList.indexWhere((a) => a.id == id);
     if (idx != -1) {
