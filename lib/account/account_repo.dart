@@ -1,7 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:rxdart/rxdart.dart';
 import 'package:simple_chat/account/account_state.dart';
-import 'package:whixp/whixp.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 abstract class AccountRepo {
   Stream<List<UiAccount>> get accounts;
@@ -21,17 +22,19 @@ class XmppAccount {
 
 class UiAccount {
   final XmppAccount account;
-  Whixp? client;
+  WebSocketChannel? _channel;
   final _stateSubject = BehaviorSubject<AccountState>();
 
   static const wsUrl = 'wss://prosody-server-production.up.railway.app/xmpp-websocket';
   static const serverDomain = 'onyx.im';
-  static const wsHost = 'prosody-server-production.up.railway.app';
 
   Stream<AccountState> get accountStateStream => _stateSubject.stream;
+  WebSocketChannel? get channel => _channel;
   String get id => '${account.username}@${account.domain}';
 
   set accountState(AccountState state) => _stateSubject.add(state);
+
+  void sendXml(String xml) => _channel?.sink.add(xml);
 
   @override
   bool operator ==(Object other) =>
@@ -59,54 +62,114 @@ class AccountRepoImpl implements AccountRepo {
     _accountsList.add(uiAccount);
     _accountSubject.add(_accountsList);
 
-    final client = Whixp(
-      jabberID: '${account.username}@${UiAccount.serverDomain}/simple_chat',
-      password: account.password,
-      host: UiAccount.wsHost,
-      port: 443,
-      internalDatabasePath: 'whixp_${account.username}',
-      reconnectionPolicy: RandomBackoffReconnectionPolicy(1, 3),
-      logger: Log(enableWarning: true, enableError: true),
-    );
-
-    uiAccount.client = client;
     uiAccount.accountState = AccountRegistering(account: account);
+    _connect(uiAccount);
 
-    client.addEventHandler<dynamic>('streamNegotiated', (_) {
-      client.sendPresence();
-      uiAccount.accountState = AccountRegistered(account: account);
-    });
-
-    client.addEventHandler<dynamic>('disconnected', (_) {
-      uiAccount.accountState = AccountUnregistered(
-        account: account,
-        message: '[disconnected] Conexão encerrada',
-      );
-    });
-
-    client.addEventHandler<dynamic>('failed', (_) {
-      uiAccount.accountState = AccountUnregistered(
-        account: account,
-        message: '[failed] Falha na autenticação',
-      );
-    });
-
-    client.addEventHandler<dynamic>('connectionFailed', (e) {
-      uiAccount.accountState = AccountUnregistered(
-        account: account,
-        message: '[connectionFailed] ${e?.toString() ?? "sem detalhes"}',
-      );
-    });
-
-    client.addEventHandler<dynamic>('error', (e) {
-      uiAccount.accountState = AccountUnregistered(
-        account: account,
-        message: '[error] ${e?.toString() ?? "erro desconhecido"}',
-      );
-    });
-
-    client.connect();
     return uiAccount;
+  }
+
+  void _connect(UiAccount uiAccount) {
+    final account = uiAccount.account;
+    final buffer = StringBuffer();
+    String stage = 'open';
+
+    try {
+      final channel = WebSocketChannel.connect(
+        Uri.parse(UiAccount.wsUrl),
+        protocols: ['xmpp'],
+      );
+      uiAccount._channel = channel;
+
+      channel.stream.listen(
+        (data) {
+          buffer.write(data.toString());
+          final xml = buffer.toString();
+
+          if (stage == 'open' && xml.contains('<open')) {
+            stage = 'features';
+            buffer.clear();
+          } else if (stage == 'features' && xml.contains('stream:features')) {
+            stage = 'auth';
+            buffer.clear();
+            // SASL PLAIN
+            final creds = base64.encode(
+              utf8.encode('\x00${account.username}\x00${account.password}'),
+            );
+            channel.sink.add(
+              "<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' "
+              "mechanism='PLAIN'>$creds</auth>",
+            );
+          } else if (stage == 'auth') {
+            if (xml.contains('<success')) {
+              stage = 'reopen';
+              buffer.clear();
+              // Reabre stream após autenticação
+              channel.sink.add(
+                "<open xmlns='urn:ietf:params:xml:ns:xmpp-websocket' "
+                "to='${UiAccount.serverDomain}' version='1.0'/>",
+              );
+            } else if (xml.contains('<failure')) {
+              uiAccount.accountState = AccountUnregistered(
+                account: account,
+                message: '[auth] Usuário ou senha incorretos',
+              );
+            }
+          } else if (stage == 'reopen' && xml.contains('<open')) {
+            stage = 'bind';
+            buffer.clear();
+            // Bind resource
+            channel.sink.add(
+              "<iq type='set' id='bind1'>"
+              "<bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'>"
+              "<resource>simple_chat</resource>"
+              "</bind>"
+              "</iq>",
+            );
+          } else if (stage == 'bind' && xml.contains('urn:ietf:params:xml:ns:xmpp-bind')) {
+            stage = 'session';
+            buffer.clear();
+            // Session
+            channel.sink.add(
+              "<iq type='set' id='sess1'>"
+              "<session xmlns='urn:ietf:params:xml:ns:xmpp-session'/>"
+              "</iq>",
+            );
+          } else if (stage == 'session' && xml.contains('id=\'sess1\'') ||
+              (stage == 'session' && xml.contains('id="sess1"'))) {
+            stage = 'connected';
+            buffer.clear();
+            // Presence
+            channel.sink.add("<presence/>");
+            uiAccount.accountState = AccountRegistered(account: account);
+          }
+        },
+        onError: (e) {
+          uiAccount.accountState = AccountUnregistered(
+            account: account,
+            message: '[ws error] ${e.toString()}',
+          );
+        },
+        onDone: () {
+          if (stage != 'connected') {
+            uiAccount.accountState = AccountUnregistered(
+              account: account,
+              message: '[ws done] Conexão encerrada na fase: $stage',
+            );
+          }
+        },
+      );
+
+      // Abre stream WebSocket XMPP
+      channel.sink.add(
+        "<open xmlns='urn:ietf:params:xml:ns:xmpp-websocket' "
+        "to='${UiAccount.serverDomain}' version='1.0'/>",
+      );
+    } catch (e) {
+      uiAccount.accountState = AccountUnregistered(
+        account: account,
+        message: '[connect error] ${e.toString()}',
+      );
+    }
   }
 
   @override
@@ -114,7 +177,7 @@ class AccountRepoImpl implements AccountRepo {
     final id = '${account.username}@${UiAccount.serverDomain}';
     final idx = _accountsList.indexWhere((a) => a.id == id);
     if (idx != -1) {
-      _accountsList[idx].client?.disconnect();
+      _accountsList[idx]._channel?.sink.close();
       _accountsList.removeAt(idx);
     }
     _accountSubject.add(_accountsList);
