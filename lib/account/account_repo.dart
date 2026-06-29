@@ -24,7 +24,7 @@ class UiAccount {
   Whixp? client;
   final _stateSubject = BehaviorSubject<AccountState>();
 
-  static const wsUrl = 'wss://prosody-production.up.railway.app/xmpp-websocket';
+  static const wsUrl = 'wss://prosody-server-production.up.railway.app/xmpp-websocket';
   static const serverDomain = 'onyx.im';
 
   Stream<AccountState> get accountStateStream => _stateSubject.stream;
