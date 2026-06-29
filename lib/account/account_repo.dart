@@ -58,11 +58,11 @@ class AccountRepoImpl implements AccountRepo {
     _accountsList.add(uiAccount);
     _accountSubject.add(_accountsList);
 
+    // Cria o cliente sem o parâmetro inválido
     final client = Whixp(
       jabberID: '${account.username}@${UiAccount.serverDomain}/simple_chat',
       password: account.password,
       host: UiAccount.serverDomain,
-      webSocketEndpoint: UiAccount.wsUrl, // ← corrigido para webSocketEndpoint
       internalDatabasePath: 'whixp_${account.username}',
       reconnectionPolicy: RandomBackoffReconnectionPolicy(1, 3),
       logger: Log(enableWarning: true, enableError: true),
@@ -104,7 +104,11 @@ class AccountRepoImpl implements AccountRepo {
       );
     });
 
-    client.connect();
+    // Conecta passando a URI do WebSocket
+    client.connect(
+      uri: Uri.parse(UiAccount.wsUrl),
+    );
+
     return uiAccount;
   }
 
