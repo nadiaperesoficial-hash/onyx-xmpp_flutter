@@ -1,28 +1,22 @@
 import 'dart:async';
-import 'dart:convert';
+import 'package:simple_chat/account/account_repo.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class XmppRegistrar {
-  final String domain;
-  final String host;
-  final int port;
   final String username;
   final String password;
 
-  static const _wsUrl = 'wss://laylaprs-meuchatxmpp.hf.space/xmpp-websocket';
-  static const _wsDomain = 'onyx.im';
-
   XmppRegistrar({
-    required this.domain,
-    required this.host,
-    required this.port,
+    required String domain,
+    required String host,
+    required int port,
     required this.username,
     required this.password,
   });
 
   Future<void> register() async {
     final channel = WebSocketChannel.connect(
-      Uri.parse(_wsUrl),
+      Uri.parse(UiAccount.wsUrl),
       protocols: ['xmpp'],
     );
 
@@ -39,7 +33,7 @@ class XmppRegistrar {
           stage = 'get_fields';
           buffer.clear();
           channel.sink.add(
-            '<iq type="get" id="reg1" to="$_wsDomain">'
+            '<iq type="get" id="reg1" to="${UiAccount.serverDomain}">'
             '<query xmlns="jabber:iq:register"/>'
             '</iq>',
           );
@@ -47,7 +41,7 @@ class XmppRegistrar {
           stage = 'registering';
           buffer.clear();
           channel.sink.add(
-            '<iq type="set" id="reg2" to="$_wsDomain">'
+            '<iq type="set" id="reg2" to="${UiAccount.serverDomain}">'
             '<query xmlns="jabber:iq:register">'
             '<username>$username</username>'
             '<password>$password</password>'
@@ -74,10 +68,9 @@ class XmppRegistrar {
       },
     );
 
-    // Abre stream WebSocket XMPP
     channel.sink.add(
       "<open xmlns='urn:ietf:params:xml:ns:xmpp-websocket' "
-      "to='$_wsDomain' version='1.0'/>",
+      "to='${UiAccount.serverDomain}' version='1.0'/>",
     );
 
     try {
