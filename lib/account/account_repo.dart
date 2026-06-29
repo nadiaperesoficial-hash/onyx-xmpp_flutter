@@ -24,7 +24,8 @@ class UiAccount {
   Whixp? client;
   final _stateSubject = BehaviorSubject<AccountState>();
 
-  static const wsUrl = 'wss://laylaprs-meuchatxmpp.hf.space/xmpp-websocket';
+  // Configurações de rede da nuvem e domínio XMPP
+  static const serverHost = 'laylaprs-meuchatxmpp.hf.space';
   static const serverDomain = 'onyx.im';
 
   Stream<AccountState> get accountStateStream => _stateSubject.stream;
@@ -33,7 +34,7 @@ class UiAccount {
   set accountState(AccountState state) => _stateSubject.add(state);
 
   @override
-  bool operator ==(other) =>
+  bool operator ==(Object other) =>
       other is UiAccount &&
       account.username == other.account.username &&
       account.domain == other.account.domain;
@@ -58,10 +59,14 @@ class AccountRepoImpl implements AccountRepo {
     _accountsList.add(uiAccount);
     _accountSubject.add(_accountsList);
 
+    // Inicializa o cliente Whixp configurando os parâmetros de WebSocket nativos
     final client = Whixp(
       jabberID: '${account.username}@${UiAccount.serverDomain}/simple_chat',
       password: account.password,
-      host: UiAccount.serverDomain,
+      host: UiAccount.serverHost,             // URL real onde o servidor na nuvem responde
+      useWebSocket: true,                     // Diz à biblioteca para empacotar os dados em WSS
+      wsPath: '/xmpp-websocket',              // Rota interna configurada no Prosody Dockerfile
+      port: 443,                              // Porta segura padrão de tráfego web
       internalDatabasePath: 'whixp_${account.username}',
       reconnectionPolicy: RandomBackoffReconnectionPolicy(1, 3),
       logger: Log(enableWarning: true, enableError: true),
@@ -70,7 +75,7 @@ class AccountRepoImpl implements AccountRepo {
     uiAccount.client = client;
     uiAccount.accountState = AccountRegistering(account: account);
 
-    // Evento correto para quando a conexão WebSocket é estabelecida e autenticada
+    // Evento correto disparado após o handshake do WebSocket e a autenticação SASL
     client.addEventHandler<dynamic>('connected', (_) {
       client.sendPresence();
       uiAccount.accountState = AccountRegistered(account: account);
@@ -104,11 +109,8 @@ class AccountRepoImpl implements AccountRepo {
       );
     });
 
-    // Conecta via WebSocket com a flag ativada
-    client.connect(
-      uri: Uri.parse(UiAccount.wsUrl),
-      useWebSocket: true, // ESSENCIAL para o Prosody no Hugging Face
-    );
+    // Inicia a conexão de forma assíncrona utilizando os parâmetros injetados no construtor
+    client.connect();
 
     return uiAccount;
   }
