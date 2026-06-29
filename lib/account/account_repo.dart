@@ -64,15 +64,11 @@ class AccountRepoImpl implements AccountRepo {
       internalDatabasePath: 'whixp_${account.username}',
       reconnectionPolicy: RandomBackoffReconnectionPolicy(1, 3),
       logger: Log(enableWarning: true, enableError: true),
-      
-      // AJUSTE SEGURO: Ignora a rejeição de certificados do Android para o handshake passar direto
-      onBadCertificateCallback: (certificate) => true,
     );
 
     uiAccount._client = client;
     uiAccount.accountState = AccountRegistering(account: account);
 
-    // Seus eventos originais mantidos exatamente iguais
     client.addEventHandler<dynamic>('streamNegotiated', (_) {
       client.sendPresence();
       uiAccount.accountState = AccountRegistered(account: account);
@@ -81,7 +77,7 @@ class AccountRepoImpl implements AccountRepo {
     client.addEventHandler<dynamic>('disconnected', (_) {
       uiAccount.accountState = AccountUnregistered(
         account: account,
-        message: 'Falha na conexão física.',
+        message: 'Conexão encerrada',
       );
     });
 
