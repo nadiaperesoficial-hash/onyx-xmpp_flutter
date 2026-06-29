@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:typed_data'; // ← necessário para Uint8List
+import 'dart:typed_data';
 import 'package:rxdart/rxdart.dart';
 import 'package:simple_chat/account/account_repo.dart';
 import 'package:simple_chat/account/account_state.dart';
@@ -41,7 +41,7 @@ class RosterRepoImpl implements RosterRepo {
     for (final acc in accounts) {
       if (!_accounts.containsKey(acc)) {
         final sub = acc.accountStateStream.listen((state) {
-          if (state is AccountRegistered) _loadRoster(acc);
+          if (state is AccountRegistered) _requestRoster(acc);
         });
         _accounts[acc] = sub;
       }
@@ -56,24 +56,35 @@ class RosterRepoImpl implements RosterRepo {
     }
   }
 
-  void _loadRoster(UiAccount acc) {
-    final client = acc.client;
-    if (client == null) return;
+  void _requestRoster(UiAccount acc) {
+    // Solicita roster via IQ
+    acc.sendXml(
+      "<iq type='get' id='roster1'>"
+      "<query xmlns='jabber:iq:roster'/>"
+      "</iq>",
+    );
 
-    client.addEventHandler<Map<String, dynamic>?>('rosterReceived', (roster) {
-      if (roster == null) return;
-      // 🔽 CORREÇÃO: remova o ! – o roster já é promovido a não-nulo
-      roster.forEach((jid, info) {
-        final infoMap = info as Map<String, dynamic>?;
-        final name = (infoMap?['name'] as String?)?.isNotEmpty == true
-            ? infoMap!['name'] as String
-            : jid;
+    // Escuta resposta do roster via WebSocket
+    acc.channel?.stream.listen((data) {
+      final xml = data.toString();
+      if (!xml.contains('jabber:iq:roster')) return;
+
+      // Parse simples de JIDs do roster
+      final regex = RegExp(r"jid='([^']+)'");
+      final matches = regex.allMatches(xml);
+      for (final match in matches) {
+        final jid = match.group(1) ?? '';
+        if (jid.isEmpty) continue;
+        final nameRegex = RegExp("name='([^']*)'");
+        final nameMatch = nameRegex.firstMatch(xml);
+        final name = nameMatch?.group(1) ?? jid;
         final exists = _rosterList
             .any((b) => b.jidString == jid && b.account.id == acc.id);
         if (!exists) {
-          _rosterList.add(UiBuddy(account: acc, jidString: jid, name: name));
+          _rosterList
+              .add(UiBuddy(account: acc, jidString: jid, name: name));
         }
-      });
+      }
       _rosterSubject.add(_rosterList);
     });
   }
