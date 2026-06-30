@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class XmppRegistrar {
@@ -29,7 +28,7 @@ class XmppRegistrar {
     void fail(String msg) {
       if (!completer.isCompleted) {
         completer.completeError(Exception(
-            '$msg\n${log.toString().substring(log.length > 600 ? log.length - 600 : 0)}'));
+            '$msg\n${log.toString().substring(log.length > 700 ? log.length - 700 : 0)}'));
       }
     }
 
@@ -59,7 +58,7 @@ class XmppRegistrar {
               (xml.contains('stream:features') || xml.contains('<features'))) {
             stage = 'get_fields';
             send(
-              "<iq type='get' id='reg1' to='$serverDomain'>"
+              "<iq type='get' id='reg1' to='$serverDomain' xmlns='jabber:client'>"
               "<query xmlns='jabber:iq:register'/>"
               "</iq>",
             );
@@ -67,7 +66,7 @@ class XmppRegistrar {
               xml.contains('jabber:iq:register')) {
             stage = 'registering';
             send(
-              "<iq type='set' id='reg2' to='$serverDomain'>"
+              "<iq type='set' id='reg2' to='$serverDomain' xmlns='jabber:client'>"
               "<query xmlns='jabber:iq:register'>"
               "<username>$username</username>"
               "<password>$password</password>"
