@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:rxdart/rxdart.dart';
 import 'package:simple_chat/account/account_state.dart';
+import 'package:simple_chat/account/xmpp_servers.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 abstract class AccountRepo {
@@ -24,9 +25,6 @@ class UiAccount {
   final XmppAccount account;
   WebSocketChannel? _channel;
   final _stateSubject = BehaviorSubject<AccountState>();
-
-  static const wsUrl = 'wss://prosody-server-production.up.railway.app/xmpp-websocket';
-  static const serverDomain = 'prosody-server-production.up.railway.app';
 
   Stream<AccountState> get accountStateStream => _stateSubject.stream;
   WebSocketChannel? get channel => _channel;
@@ -63,20 +61,34 @@ class AccountRepoImpl implements AccountRepo {
     _accountsList.add(uiAccount);
     _accountSubject.add(_accountsList);
     uiAccount.accountState = AccountRegistering(account: account);
-    _connect(uiAccount);
+    _connectWithFallback(uiAccount, candidateWsUrls(account.domain), 0);
     return uiAccount;
   }
 
-  void _connect(UiAccount uiAccount) {
+  void _connectWithFallback(UiAccount uiAccount, List<String> urls, int index) {
+    if (index >= urls.length) {
+      uiAccount.accountState = AccountUnregistered(
+        account: uiAccount.account,
+        message: '[connect] Nenhuma porta WebSocket respondeu',
+      );
+      return;
+    }
+    _connect(uiAccount, urls[index], () {
+      _connectWithFallback(uiAccount, urls, index + 1);
+    });
+  }
+
+  void _connect(UiAccount uiAccount, String wsUrl, void Function() onFallback) {
     final account = uiAccount.account;
     bool authenticated = false;
     bool reopened = false;
     bool bound = false;
+    bool triedFallback = false;
     final log = StringBuffer();
 
     try {
       final channel = WebSocketChannel.connect(
-        Uri.parse(UiAccount.wsUrl),
+        Uri.parse(wsUrl),
         protocols: ['xmpp'],
       );
       uiAccount._channel = channel;
@@ -117,23 +129,20 @@ class AccountRepoImpl implements AccountRepo {
               );
             } else if (xml.contains('<success')) {
               authenticated = true;
-              send("<open xmlns='$_nsFraming' to='${UiAccount.serverDomain}' version='1.0'/>");
+              send("<open xmlns='$_nsFraming' to='${account.domain}' version='1.0'/>");
             } else if (xml.contains('<failure')) {
               fail('[auth] Usuário ou senha incorretos');
             }
             return;
           }
 
-          // Após autenticar, aguarda o segundo <open> confirmando reabertura
           if (authenticated && !reopened) {
             if (xml.contains('<open')) {
               reopened = true;
-              // Aguarda as features chegarem na próxima mensagem
             }
             return;
           }
 
-          // Agora processa as features pós-reabertura e envia bind
           if (reopened && !bound) {
             if (xml.contains('stream:features') || xml.contains('<features')) {
               send(
@@ -154,26 +163,47 @@ class AccountRepoImpl implements AccountRepo {
             }
           }
         },
-        onError: (e) => fail('[ws error] $e'),
+        onError: (e) {
+          if (!bound && !triedFallback) {
+            triedFallback = true;
+            onFallback();
+          } else if (!bound) {
+            uiAccount.accountState = AccountUnregistered(
+              account: account,
+              message: '[ws error] $e',
+            );
+          }
+        },
         onDone: () {
-          if (!bound) {
-            fail('[done] auth=$authenticated reopened=$reopened bound=$bound');
+          if (!bound && !triedFallback) {
+            triedFallback = true;
+            onFallback();
+          } else if (!bound) {
+            uiAccount.accountState = AccountUnregistered(
+              account: account,
+              message: '[done] auth=$authenticated reopened=$reopened bound=$bound',
+            );
           }
         },
       );
 
-      send("<open xmlns='$_nsFraming' to='${UiAccount.serverDomain}' version='1.0'/>");
+      send("<open xmlns='$_nsFraming' to='${account.domain}' version='1.0'/>");
     } catch (e) {
-      uiAccount.accountState = AccountUnregistered(
-        account: account,
-        message: '[connect error] $e',
-      );
+      if (!triedFallback) {
+        triedFallback = true;
+        onFallback();
+      } else {
+        uiAccount.accountState = AccountUnregistered(
+          account: account,
+          message: '[connect error] $e',
+        );
+      }
     }
   }
 
   @override
   void unregister(XmppAccount account) {
-    final id = '${account.username}@${UiAccount.serverDomain}';
+    final id = '${account.username}@${account.domain}';
     final idx = _accountsList.indexWhere((a) => a.id == id);
     if (idx != -1) {
       _accountsList[idx]._channel?.sink.close();
