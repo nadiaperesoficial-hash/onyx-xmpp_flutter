@@ -25,7 +25,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final state = widget.accountBloc.state;
     if (state is AccountRegistered && state.account != null) {
       final targetId = '${state.account!.username}@${state.account!.domain}';
-      for (final a in _accountRepo.accounts.valueOrNull ?? <UiAccount>[]) {
+      for (final a in _accountRepo.currentAccounts) {
         if (a.id == targetId) return a;
       }
     }
