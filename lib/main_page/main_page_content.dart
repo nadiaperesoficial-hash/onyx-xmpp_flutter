@@ -1,12 +1,9 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:simple_chat/repo/ui_chat.dart';
 import 'package:simple_chat/roster/roster_repo.dart';
 import 'main_page_bloc.dart';
 import 'main_page_state.dart';
-
-const _accent = Color(0xFF1976D2);
 
 Color _avatarColorFor(String text) {
   const colors = [
@@ -102,7 +99,6 @@ class ChatListPage extends StatelessWidget {
 
   Widget _buildChatItem(BuildContext context, UiChat chatItem) {
     final color = _avatarColorFor(chatItem.name);
-    final hasUnread = false; // TODO: ligar ao estado real de não lidas
 
     return InkWell(
       onTap: () {
@@ -139,15 +135,6 @@ class ChatListPage extends StatelessWidget {
                 ],
               ),
             ),
-            if (hasUnread)
-              Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: Colors.redAccent,
-                  shape: BoxShape.circle,
-                ),
-              ),
           ],
         ),
       ),
