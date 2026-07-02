@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:simple_chat/account/account.dart';
 import 'package:simple_chat/account/account_repo.dart';
+import 'package:simple_chat/roster/add_contact_page.dart';
 import 'package:simple_chat/service_locator/service_locator.dart';
 import 'main_page_bloc.dart';
 import 'main_page_content.dart';
@@ -77,7 +78,7 @@ class _MainPageState extends State<MainPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => AddContactPageWrapper(account: account),
+                    builder: (_) => AddContactPage(account: account),
                   ),
                 );
               },
