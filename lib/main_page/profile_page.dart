@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,6 +5,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:simple_chat/account/account.dart';
 import 'package:simple_chat/account/account_repo.dart';
 import 'package:simple_chat/profile/vcard_service.dart';
+import 'package:simple_chat/service_locator/service_locator.dart';
 
 class ProfilePage extends StatefulWidget {
   final AccountBloc accountBloc;
@@ -16,6 +16,7 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  final _accountRepo = sl.get<AccountRepo>();
   bool _uploading = false;
   String? _uploadError;
   File? _localPreview;
@@ -23,13 +24,10 @@ class _ProfilePageState extends State<ProfilePage> {
   UiAccount? get _uiAccount {
     final state = widget.accountBloc.state;
     if (state is AccountRegistered && state.account != null) {
-      // Busca a UiAccount correspondente através do AccountRepo
-      return widget.accountBloc.accountRepo.accounts.value
-          .cast<UiAccount?>()
-          .firstWhere(
-            (a) => a?.id == '${state.account!.username}@${state.account!.domain}',
-            orElse: () => null,
-          );
+      final targetId = '${state.account!.username}@${state.account!.domain}';
+      for (final a in _accountRepo.accounts.valueOrNull ?? <UiAccount>[]) {
+        if (a.id == targetId) return a;
+      }
     }
     return null;
   }
@@ -53,8 +51,7 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     try {
-      // Comprime até caber no limite (compressão progressiva)
-      Uint8List? compressed = await FlutterImageCompress.compressWithFile(
+      var compressed = await FlutterImageCompress.compressWithFile(
         picked.path,
         minWidth: 256,
         minHeight: 256,
@@ -200,9 +197,7 @@ class _ProfilePageState extends State<ProfilePage> {
             leading: const Icon(Icons.settings_outlined, color: Color(0xFF1976D2)),
             title: const Text('Settings'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              // TODO: tela de settings
-            },
+            onTap: () {},
           ),
           const Divider(height: 1),
           ListTile(
@@ -220,9 +215,7 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Sair da conta?'),
-        content: const Text(
-          'Suas conversas continuarão salvas neste dispositivo.',
-        ),
+        content: const Text('Suas conversas continuarão salvas neste dispositivo.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
