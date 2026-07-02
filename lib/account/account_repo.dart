@@ -7,6 +7,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 abstract class AccountRepo {
   Stream<List<UiAccount>> get accounts;
+  List<UiAccount> get currentAccounts;
   UiAccount register(XmppAccount account);
   void unregister(XmppAccount account);
 }
@@ -46,13 +47,16 @@ class UiAccount {
 }
 
 class AccountRepoImpl implements AccountRepo {
-  final _accountSubject = BehaviorSubject<List<UiAccount>>();
+  final _accountSubject = BehaviorSubject<List<UiAccount>>.seeded([]);
   final List<UiAccount> _accountsList = [];
 
   static const _nsFraming = 'urn:ietf:params:xml:ns:xmpp-framing';
 
   @override
   Stream<List<UiAccount>> get accounts => _accountSubject.stream;
+
+  @override
+  List<UiAccount> get currentAccounts => List.unmodifiable(_accountsList);
 
   @override
   UiAccount register(XmppAccount account) {
