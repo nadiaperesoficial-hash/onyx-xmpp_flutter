@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:simple_chat/account/account.dart';
+import 'package:simple_chat/account/account_repo.dart';
+import 'package:simple_chat/service_locator/service_locator.dart';
 import 'main_page_bloc.dart';
 import 'main_page_content.dart';
 import 'profile_page.dart';
@@ -16,8 +18,20 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
   final MainPageBloc _mainPageBloc = MainPageBloc();
+  final _accountRepo = sl.get<AccountRepo>();
 
   static const _accent = Color(0xFF1976D2);
+
+  UiAccount? get _currentUiAccount {
+    final state = widget.accountBloc.state;
+    if (state is AccountRegistered && state.account != null) {
+      final targetId = '${state.account!.username}@${state.account!.domain}';
+      for (final a in _accountRepo.accounts.valueOrNull ?? <UiAccount>[]) {
+        if (a.id == targetId) return a;
+      }
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +68,22 @@ class _MainPageState extends State<MainPage> {
             : null,
       ),
       body: IndexedStack(index: _currentIndex, children: pages),
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton(
+              backgroundColor: _accent,
+              onPressed: () {
+                final account = _currentUiAccount;
+                if (account == null) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AddContactPageWrapper(account: account),
+                  ),
+                );
+              },
+              child: const Icon(Icons.chat, color: Colors.white),
+            )
+          : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
