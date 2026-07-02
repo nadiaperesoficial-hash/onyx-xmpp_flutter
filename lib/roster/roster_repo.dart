@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:rxdart/rxdart.dart';
 import 'package:simple_chat/account/account_repo.dart';
@@ -69,7 +68,6 @@ class RosterRepoImpl implements RosterRepo {
     acc.channel?.stream.listen((data) {
       final xml = data.toString();
 
-      // Roster inicial ou push de roster (novo contato adicionado)
       if (xml.contains('jabber:iq:roster')) {
         final regex = RegExp(r"jid='([^']+)'");
         final matches = regex.allMatches(xml);
@@ -99,7 +97,6 @@ class RosterRepoImpl implements RosterRepo {
     _iqCounter++;
     final id = 'addcontact$_iqCounter';
 
-    // 1. Adiciona ao roster local no servidor
     account.sendXml(
       "<iq type='set' id='$id' xmlns='jabber:client'>"
       "<query xmlns='jabber:iq:roster'>"
@@ -108,7 +105,6 @@ class RosterRepoImpl implements RosterRepo {
       "</iq>",
     );
 
-    // 2. Envia pedido de subscription (o outro lado recebe e pode aceitar)
     account.sendXml(
       "<presence type='subscribe' to='$trimmed' xmlns='jabber:client'/>",
     );
